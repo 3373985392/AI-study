@@ -15,12 +15,10 @@ declare const data: Post[]
 export { data }
 
 export default createContentLoader('blog/posts/*.md', {
-  excerpt: true,
   transform(raw): Post[] {
     return raw
       .map((page) => {
         const fm = page.frontmatter
-        const words = page.excerpt?.length || 0
         return {
           title: fm.title as string,
           url: page.url,
@@ -28,8 +26,8 @@ export default createContentLoader('blog/posts/*.md', {
           formattedDate: formatChineseDate(fm.date as string),
           tags: (fm.tags as string[]) || [],
           categories: (fm.categories as string[]) || [],
-          excerpt: page.excerpt || '',
-          readingTime: Math.max(1, Math.ceil(words / 300)),
+          excerpt: (fm.description as string) || '',
+          readingTime: 0,
         }
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

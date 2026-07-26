@@ -24,7 +24,7 @@ import { withBase } from 'vitepress'
         <a :href="withBase(`/blog/tags#${tag}`)">{{ tag }}</a>
       </span>
     </div>
-    <p class="post-excerpt" v-if="post.excerpt" v-html="post.excerpt"></p>
+    <p class="post-excerpt" v-if="post.excerpt">{{ post.excerpt }}</p>
   </article>
 
   <div v-if="posts.length === 0" class="empty">
