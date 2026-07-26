@@ -16,7 +16,6 @@ import { withBase } from 'vitepress'
       </h2>
       <div class="post-meta">
         <time :datetime="post.date">{{ post.formattedDate }}</time>
-        <span>{{ post.readingTime }} 分钟阅读</span>
       </div>
     </header>
     <div v-if="post.tags.length">
