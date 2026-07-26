@@ -34,3 +34,8 @@ chroma_db/
 
 # Logs
 *.log
+
+# VitePress / Node
+node_modules/
+.vitepress/dist/
+.vitepress/cache/
