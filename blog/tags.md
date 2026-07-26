@@ -19,7 +19,7 @@ const tags = Object.keys(tagMap).sort()
 
 <div class="tags-page">
   <div v-for="tag in tags" :key="tag" class="tag-section">
-    <h2 :id="tag"><a :href="`#${tag}`"># {{ tag }}</a></h2>
+    <h2 :id="tag"><a :href="withBase(`/blog/tags#${tag}`)"># {{ tag }}</a></h2>
     <ul>
       <li v-for="post in tagMap[tag]" :key="post.url">
         <a :href="withBase(post.url)">{{ post.title }}</a>
