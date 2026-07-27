@@ -1,6 +1,6 @@
 ---
 title: "AI Agent 应用开发工程师 3个月成长计划"
-date: 2026-07-25
+date: 2026-07-26
 tags: [AI Agent, LangChain, LangGraph, RAG, 学习路线, Python, FastAPI, MCP, 向量数据库]
 categories: [学习计划]
 description: "Python后端 → AI Agent应用开发工程师的3个月系统学习计划，涵盖RAG、LangChain、MCP、FastAPI部署"

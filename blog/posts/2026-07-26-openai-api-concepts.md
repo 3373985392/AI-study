@@ -1,5 +1,5 @@
 ---
-title: "OpenAPI相关概念"
+title: "OpenAI API 相关概念"
 date: 2026-07-26
 tags: [提示词, 温度]
 categories: [概念]
