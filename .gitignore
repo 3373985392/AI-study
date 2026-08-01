@@ -22,6 +22,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+.env.*
+!.env.example
+!.env.*.example
 .env.*.local
 
 # Jupyter
@@ -40,3 +43,6 @@ chroma_db/
 node_modules/
 .vitepress/dist/
 .vitepress/cache/
+
+# External RAG corpus (downloaded separately)
+/projects/minimal-rag/sources/

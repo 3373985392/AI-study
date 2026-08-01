@@ -5,6 +5,9 @@ const BASE = '/AI-study/'
 export default defineConfig({
   base: BASE,
 
+  // 仓库说明、项目 README 与 RAG 语料不是站点页面，避免 VitePress 解析其资源引用。
+  srcExclude: ['README.md', 'projects/**'],
+
   title: 'AI Agent 开发笔记',
   description: 'Python后端转AI Agent开发者的技术博客',
   lang: 'zh-CN',
