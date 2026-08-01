@@ -4,7 +4,7 @@
 
 ## 在线访问
 
-<https://3373985392.github.io/AI-study/>
+<https://chien-zz.github.io/AI-study/>
 
 ## 本地开发
 

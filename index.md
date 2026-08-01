@@ -11,7 +11,7 @@ hero:
       link: /blog/
     - theme: alt
       text: GitHub
-      link: https://github.com/3373985392
+      link: https://github.com/chien-zZ
 
 features:
   - icon: 🧠

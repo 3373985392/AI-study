@@ -25,7 +25,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/3373985392' },
+      { icon: 'github', link: 'https://github.com/chien-zZ' },
     ],
 
     footer: {
@@ -58,7 +58,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/3373985392/AI-study/edit/master/:path',
+      pattern: 'https://github.com/chien-zZ/AI-study/edit/master/:path',
       text: '在 GitHub 上编辑此页',
     },
   },
