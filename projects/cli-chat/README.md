@@ -1,4 +1,4 @@
-# 命令行流式对话助手
+# 命令行与 Web 流式对话助手
 
 基于 Python、OpenAI 兼容 SDK 和阿里云百炼 API 的命令行流式对话助手。
 
@@ -10,6 +10,8 @@
 - 支持切换本地 RAG 知识库问答
 - 支持 `/exit`、`/quit`、`/退出`、`/再见` 退出程序
 - API 请求失败时不会直接退出
+- FastAPI SSE 流式接口与 VitePress 浏览器聊天界面
+- 长期邀请码、30 天会话、调用限额与本地历史隔离
 
 ## 环境要求
 
@@ -60,6 +62,45 @@ LLM_MODEL=qwen-plus
 cd D:\myproject\projects\cli-chat
 python chat.py
 ```
+
+## 本地运行 Web Chat
+
+先在仓库根目录 `.env` 中配置模型参数和 Web Chat 参数。两个 Pepper
+必须使用不同的随机值，且至少 32 个字符。
+
+在第一个 PowerShell 窗口启动后端：
+
+```powershell
+cd D:\myproject\projects\cli-chat
+..\..\.venv\Scripts\python.exe -m uvicorn app.web_api:create_app --factory --reload --port 8000
+```
+
+在第二个 PowerShell 窗口启动 VitePress：
+
+```powershell
+cd D:\myproject
+$env:VITEPRESS_BASE = "/"
+npm run dev
+```
+
+浏览器访问 `http://localhost:5173/chat`。VitePress 会将 `/api`
+代理到本机的 FastAPI 服务。
+
+## 管理邀请码
+
+邀请码明文只会在隐藏输入时出现，数据库中仅保存 HMAC 摘要：
+
+```powershell
+cd D:\myproject\projects\cli-chat
+..\..\.venv\Scripts\python.exe -m app.invite_admin create --label "测试用户"
+..\..\.venv\Scripts\python.exe -m app.invite_admin list
+..\..\.venv\Scripts\python.exe -m app.invite_admin stats 邀请码ID
+..\..\.venv\Scripts\python.exe -m app.invite_admin revoke 邀请码ID
+..\..\.venv\Scripts\python.exe -m app.invite_admin activate 邀请码ID
+```
+
+邀请码必须为 16–64 位，只能包含字母、数字、`-` 和 `_`，并且至少
+同时包含一个字母和一个数字。忘记的邀请码无法恢复，只能撤销后新建。
 
 ## 对话命令
 

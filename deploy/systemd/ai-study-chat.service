@@ -1,0 +1,24 @@
+[Unit]
+Description=AI Study invitation-only Web Chat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ai-study
+Group=ai-study
+WorkingDirectory=/srv/ai-study/projects/cli-chat
+EnvironmentFile=/etc/ai-study/chat.env
+ExecStart=/srv/ai-study/.venv/bin/python -m uvicorn app.web_api:create_app --factory --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+
+# 安全边界：服务只读源码，只允许写入 SQLite 数据目录。
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ai-study
+
+[Install]
+WantedBy=multi-user.target

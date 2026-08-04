@@ -8,12 +8,24 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "test:web": "vitest run"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "vitepress": "^1.6.4"
+    "@types/markdown-it": "^14.1.2",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "esbuild": "^0.28.0",
+    "jsdom": "^30.0.1",
+    "vitepress": "^1.6.4",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.13",
+    "markdown-it": "^15.0.0",
+    "vue": "^3.5.40"
   }
 }

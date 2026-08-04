@@ -7,6 +7,9 @@ hero:
   tagline: 记录从 CRUD 到智能体的成长之路
   actions:
     - theme: brand
+      text: 体验 AI Chat
+      link: /chat
+    - theme: alt
       text: 阅读博客
       link: /blog/
     - theme: alt
