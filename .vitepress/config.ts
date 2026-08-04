@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
-const BASE = '/AI-study/'
+// 部署路径模块：GitHub Pages 默认使用仓库子路径，独立域名构建时可通过环境变量切换为根路径。
+const BASE = process.env.VITEPRESS_BASE ?? '/AI-study/'
 
 export default defineConfig({
   base: BASE,
