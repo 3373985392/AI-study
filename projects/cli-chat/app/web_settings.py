@@ -40,6 +40,10 @@ def load_web_settings() -> WebSettings:
     """加载 Web 配置并在启动阶段报告不安全或缺失的设置。"""
 
     load_dotenv(REPOSITORY_ROOT / ".env")
+    # 生产 systemd 使用的环境文件也供手动邀请码管理命令复用。
+    production_env = Path(os.getenv("CHAT_ENV_FILE", "/etc/ai-study/chat.env"))
+    if production_env.exists():
+        load_dotenv(production_env)
     database_path = Path(
         os.getenv(
             "CHAT_DATABASE_PATH",

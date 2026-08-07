@@ -5,16 +5,15 @@
 ## 首次准备
 
 1. 安装 Python 3.12、`python3.12-venv`、Node.js 24、Nginx 和 rsync。
-2. 创建无登录服务用户与数据目录：
+2. 创建数据目录，并交给已有的 `deploy` 用户管理：
 
    ```bash
-   sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin ai-study
-   sudo install -d -o ai-study -g ai-study -m 750 /var/lib/ai-study
-   sudo install -d -o root -g ai-study -m 750 /etc/ai-study
+   sudo install -d -o deploy -g deploy -m 750 /var/lib/ai-study
+   sudo install -d -o root -g deploy -m 750 /etc/ai-study
    ```
 
 3. 将 `deploy/chat.env.example` 复制为 `/etc/ai-study/chat.env`，填入真实值，
-   然后设置 `root:ai-study` 和 `0640` 权限。
+   然后设置 `root:deploy` 和 `0640` 权限，让 deploy 可以管理配置。
 4. 安装 systemd 与 Nginx 模板：
 
    ```bash
@@ -30,12 +29,12 @@
 
 ## 邀请码管理
 
-以服务用户运行管理命令，确保数据库权限一致：
+以 `deploy` 用户运行管理命令，确保数据库权限一致：
 
 ```bash
 cd /srv/ai-study/projects/cli-chat
-sudo -u ai-study /srv/ai-study/.venv/bin/python -m app.invite_admin create --label "朋友A"
-sudo -u ai-study /srv/ai-study/.venv/bin/python -m app.invite_admin list
+/srv/ai-study/.venv/bin/python -m app.invite_admin create --label "朋友A"
+/srv/ai-study/.venv/bin/python -m app.invite_admin list
 ```
 
 ## 日常发布

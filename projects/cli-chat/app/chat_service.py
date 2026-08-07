@@ -37,6 +37,9 @@ def load_chat_settings() -> ChatSettings:
     """从仓库根目录加载配置，并集中报告缺失项。"""
 
     load_dotenv(REPOSITORY_ROOT / ".env")
+    production_env = Path(os.getenv("CHAT_ENV_FILE", "/etc/ai-study/chat.env"))
+    if production_env.exists():
+        load_dotenv(production_env)
     # 迁移期间兼容 cli-chat 目录内的旧配置，且不覆盖根目录已有变量。
     load_dotenv(REPOSITORY_ROOT / "projects" / "cli-chat" / ".env")
 
@@ -171,4 +174,3 @@ class ChatService:
             {"role": "assistant", "content": answer},
         ]
         return updated_history[-self.max_history_rounds * 2 :]
-
