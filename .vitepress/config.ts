@@ -6,6 +6,19 @@ const BASE = process.env.VITEPRESS_BASE ?? '/AI-study/'
 export default defineConfig({
   base: BASE,
 
+  // 博客文章页保持内容聚焦，统一隐藏文档导航元信息和全站页脚。
+  transformPageData(pageData) {
+    if (pageData.relativePath.startsWith('blog/posts/')) {
+      pageData.lastUpdated = 0
+      Object.assign(pageData.frontmatter, {
+        editLink: false,
+        lastUpdated: false,
+        docFooter: false,
+        footer: false,
+      })
+    }
+  },
+
   // 本地开发代理模块：浏览器始终请求同源 /api，生产环境由 Nginx 接管相同路径。
   vite: {
     server: {

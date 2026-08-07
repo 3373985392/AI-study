@@ -39,6 +39,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4_000)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
     mode: Literal["chat", "rag"] = "chat"
+    persona: Literal["brat", "normal"] = "normal"
 
     @field_validator("message")
     @classmethod
@@ -253,6 +254,7 @@ def create_app(
                     payload.message,
                     history,
                     rag_enabled=payload.mode == "rag",
+                    persona_id=payload.persona,
                 ):
                     yield sse_event("token", {"text": token})
                 yield sse_event("done", {"requestId": request_id})

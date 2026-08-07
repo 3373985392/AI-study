@@ -13,7 +13,7 @@
    ```
 
 3. 将 `deploy/chat.env.example` 复制为 `/etc/ai-study/chat.env`，填入真实值，
-   然后设置 `root:deploy` 和 `0640` 权限，让 deploy 可以管理配置。
+   然后设置 `deploy:deploy` 和 `0600` 权限，让 deploy 可以管理配置，其他用户无法读取。
 4. 安装 systemd 与 Nginx 模板：
 
    ```bash

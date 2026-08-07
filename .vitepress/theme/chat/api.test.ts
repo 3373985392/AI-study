@@ -22,6 +22,7 @@ describe('streamReply', () => {
       message: '测试',
       history: [],
       mode: 'chat',
+      persona: 'brat',
       signal: new AbortController().signal,
       onToken: (text) => tokens.push(text),
     })
@@ -39,9 +40,9 @@ describe('streamReply', () => {
       message: '测试',
       history: [],
       mode: 'chat',
+      persona: 'normal',
       signal: new AbortController().signal,
       onToken: () => undefined,
     })).rejects.toMatchObject<ApiError>({ status: 429, retryAfter: 42 })
   })
 })
-

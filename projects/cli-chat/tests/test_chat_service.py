@@ -4,7 +4,12 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.chat_service import ChatService, normalize_history
+from app.chat_service import (
+    BRAT_SYSTEM_PROMPT,
+    NORMAL_SYSTEM_PROMPT,
+    ChatService,
+    normalize_history,
+)
 
 
 def make_chunk(content: str | None) -> SimpleNamespace:
@@ -57,6 +62,20 @@ class ChatServiceTests(unittest.TestCase):
         self.assertEqual(answer, "你好")
         self.assertEqual(completions.last_request["model"], "test-model")
         self.assertTrue(completions.last_request["stream"])
+        self.assertEqual(
+            completions.last_request["messages"][0]["content"],
+            NORMAL_SYSTEM_PROMPT,
+        )
+
+    def test_stream_reply_uses_selected_persona(self) -> None:
+        service, completions = make_service([make_chunk("回答")])
+
+        list(service.stream_reply("测试问题", persona_id="brat"))
+
+        self.assertEqual(
+            completions.last_request["messages"][0]["content"],
+            BRAT_SYSTEM_PROMPT,
+        )
 
     def test_stream_reply_limits_previous_rounds(self) -> None:
         service, completions = make_service(

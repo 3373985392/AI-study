@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { Eye, EyeOff, LogOut, Send, Sparkles, Square, Trash2 } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ApiError, getSession, logoutSession, redeemInvite, streamReply } from '../chat/api'
 import { renderMarkdown } from '../chat/markdown'
 import { clearHistory, loadHistory, prepareHistory, saveHistory } from '../chat/storage'
-import type { AuthState, ChatMessage, ChatMode } from '../chat/types'
+import type { AuthState, ChatMessage, PersonaId } from '../chat/types'
 
 
 // 认证状态模块：页面加载前不展示邀请码表单，避免会话检查时闪烁。
@@ -17,7 +18,7 @@ const authError = ref('')
 // 聊天状态模块：历史按 viewerId 隔离，并始终限制为最近十轮。
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
-const mode = ref<ChatMode>('chat')
+const persona = ref<PersonaId>('brat')
 const generating = ref(false)
 const chatError = ref('')
 const messageList = ref<HTMLElement | null>(null)
@@ -82,7 +83,8 @@ async function sendMessage(): Promise<void> {
     await streamReply({
       message: question,
       history: previousHistory,
-      mode: mode.value,
+      mode: 'chat',
+      persona: persona.value,
       signal: controller.signal,
       onToken(text) {
         // 通过 Vue 的响应式数组写入，确保流式 token 立即刷新到页面。
@@ -131,6 +133,12 @@ function clearMessages(): void {
   chatError.value = ''
 }
 
+function selectPersona(nextPersona: PersonaId): void {
+  if (persona.value === nextPersona) return
+  clearMessages()
+  persona.value = nextPersona
+}
+
 async function logout(): Promise<void> {
   if (generating.value) stopGeneration()
   const currentViewer = viewerId.value
@@ -163,12 +171,15 @@ onMounted(async () => {
 
 <template>
   <section class="chat-shell" aria-label="AI Chat">
-    <div v-if="loadingSession" class="state-card" role="status">正在检查访问权限…</div>
+    <div v-if="loadingSession" class="state-panel" role="status">
+      <Sparkles :size="20" aria-hidden="true" />
+      <span>正在检查访问权限…</span>
+    </div>
 
     <form v-else-if="!auth.authenticated" class="invite-card" @submit.prevent="submitInvite">
-      <div class="invite-mark" aria-hidden="true">✦</div>
-      <h1>进入 AI Chat</h1>
-      <p>此功能仅对受邀用户开放。邀请码只发送到服务器验证，不会保存在浏览器。</p>
+      <div class="invite-mark" aria-hidden="true"><Sparkles :size="24" /></div>
+      <h1>AI Chat</h1>
+      <p>请输入邀请码继续</p>
       <label for="invite-code">邀请码</label>
       <div class="invite-input-row">
         <input
@@ -181,8 +192,15 @@ onMounted(async () => {
           placeholder="请输入邀请码"
           required
         >
-        <button type="button" class="quiet-button" @click="showInvite = !showInvite">
-          {{ showInvite ? '隐藏' : '显示' }}
+        <button
+          type="button"
+          class="icon-button"
+          :aria-label="showInvite ? '隐藏邀请码' : '显示邀请码'"
+          :title="showInvite ? '隐藏邀请码' : '显示邀请码'"
+          @click="showInvite = !showInvite"
+        >
+          <EyeOff v-if="showInvite" :size="18" />
+          <Eye v-else :size="18" />
         </button>
       </div>
       <p v-if="authError" class="error-text" role="alert">{{ authError }}</p>
@@ -192,28 +210,42 @@ onMounted(async () => {
     </form>
 
     <div v-else class="chat-card">
-      <header class="chat-header">
-        <div>
-          <h1>AI Chat</h1>
-          <p v-if="auth.limits">
-            今日剩余 {{ auth.limits.dayRemaining }} 次 · 本分钟 {{ auth.limits.minuteRemaining }} 次
-          </p>
+      <header class="chat-toolbar">
+        <div class="chat-identity">
+          <span class="identity-icon" aria-hidden="true"><Sparkles :size="18" /></span>
+          <div>
+            <h1>AI Chat</h1>
+            <p>在线</p>
+          </div>
         </div>
-        <div class="header-actions">
-          <button class="quiet-button" type="button" @click="clearMessages">清空</button>
-          <button class="quiet-button" type="button" @click="logout">退出</button>
+
+        <div class="mode-switch" aria-label="角色设置">
+          <span class="mode-label">角色</span>
+          <button :class="{ active: persona === 'brat' }" type="button" @click="selectPersona('brat')">雌小鬼</button>
+          <button :class="{ active: persona === 'normal' }" type="button" @click="selectPersona('normal')">普通</button>
+          <button type="button" disabled title="暂未开放">RAG</button>
+        </div>
+
+        <div class="toolbar-meta">
+          <div v-if="auth.limits" class="quota" title="邀请码剩余额度">
+            <span>今日 {{ auth.limits.dayRemaining }}</span>
+            <span>本分钟 {{ auth.limits.minuteRemaining }}</span>
+          </div>
+          <div class="header-actions">
+            <button class="icon-button" type="button" aria-label="清空对话" title="清空对话" @click="clearMessages">
+              <Trash2 :size="17" />
+            </button>
+            <button class="icon-button" type="button" aria-label="退出登录" title="退出登录" @click="logout">
+              <LogOut :size="17" />
+            </button>
+          </div>
         </div>
       </header>
 
-      <div class="mode-switch" aria-label="聊天模式">
-        <button :class="{ active: mode === 'chat' }" type="button" @click="mode = 'chat'">普通聊天</button>
-        <button :class="{ active: mode === 'rag' }" type="button" @click="mode = 'rag'">知识库 RAG</button>
-      </div>
-
       <div ref="messageList" class="message-list" aria-live="polite">
         <div v-if="messages.length === 0" class="empty-state">
-          <strong>{{ mode === 'rag' ? '向本地知识库提问' : '开始一段新对话' }}</strong>
-          <span>{{ mode === 'rag' ? '回答会引用检索到的 Vue 学习资料。' : '支持 Markdown 与多轮上下文。' }}</span>
+          <span class="empty-icon" aria-hidden="true"><Sparkles :size="22" /></span>
+          <strong>{{ persona === 'brat' ? '大叔，想聊点什么？' : '有什么想问的？' }}</strong>
         </div>
         <article
           v-for="(message, index) in messages"
@@ -231,75 +263,120 @@ onMounted(async () => {
         </article>
       </div>
 
-      <p v-if="chatError" class="error-text chat-error" role="status">{{ chatError }}</p>
-      <div class="composer">
-        <textarea
-          v-model="input"
-          maxlength="4000"
-          rows="3"
-          :disabled="generating"
-          placeholder="输入问题，Enter 发送，Shift+Enter 换行"
-          @keydown="handleKeydown"
-        />
-        <button v-if="generating" class="stop-button" type="button" @click="stopGeneration">停止</button>
-        <button v-else class="primary-button send-button" type="button" :disabled="!canSend" @click="sendMessage">发送</button>
-      </div>
+      <footer class="composer-panel">
+        <p v-if="chatError" class="error-text chat-error" role="status">{{ chatError }}</p>
+        <div class="composer">
+          <textarea
+            v-model="input"
+            maxlength="4000"
+            rows="2"
+            :disabled="generating"
+            placeholder="输入消息…"
+            @keydown="handleKeydown"
+          />
+          <button
+            v-if="generating"
+            class="stop-button composer-button"
+            type="button"
+            aria-label="停止生成"
+            title="停止生成"
+            @click="stopGeneration"
+          >
+            <Square :size="17" fill="currentColor" />
+          </button>
+          <button
+            v-else
+            class="primary-button send-button composer-button"
+            type="button"
+            :disabled="!canSend"
+            aria-label="发送消息"
+            title="发送消息"
+            @click="sendMessage"
+          >
+            <Send :size="18" />
+          </button>
+        </div>
+      </footer>
     </div>
   </section>
 </template>
 
 <style scoped>
-.chat-shell { max-width: 920px; min-height: 620px; margin: 0 auto; padding: 28px 0; }
-.state-card, .invite-card, .chat-card { border: 1px solid var(--vp-c-divider); border-radius: 18px; background: var(--vp-c-bg-soft); box-shadow: 0 18px 50px rgba(0, 0, 0, .08); }
-.state-card { padding: 80px 24px; text-align: center; color: var(--vp-c-text-2); }
-.invite-card { max-width: 460px; margin: 70px auto; padding: 38px; }
-.invite-mark { color: var(--vp-c-brand-1); font-size: 34px; }
-.invite-card h1, .chat-header h1 { margin: 8px 0; border: 0; font-size: 26px; }
-.invite-card p { color: var(--vp-c-text-2); line-height: 1.7; }
-.invite-card label { display: block; margin: 24px 0 8px; font-weight: 600; }
+:global(.VPPage:has(.chat-shell)) { padding: 0 !important; }
+:global(.VPContent:has(.chat-shell)) { overflow: hidden; }
+* { box-sizing: border-box; }
+.chat-shell { width: min(1180px, 100%); height: calc(100dvh - var(--vp-nav-height)); min-height: 520px; margin: 0 auto; padding: 12px 20px 16px; }
+.state-panel { height: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--vp-c-text-2); }
+.invite-card { width: min(420px, calc(100% - 32px)); margin: clamp(36px, 12vh, 110px) auto 0; padding: 30px; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg); box-shadow: 0 18px 44px rgba(0, 0, 0, .08); }
+.invite-mark, .identity-icon, .empty-icon { display: inline-grid; place-items: center; color: var(--vp-c-brand-1); }
+.invite-mark { width: 42px; height: 42px; border-radius: 8px; background: var(--vp-c-brand-soft); }
+.invite-card h1 { margin: 16px 0 4px; border: 0; font-size: 24px; }
+.invite-card p { margin: 0; color: var(--vp-c-text-2); }
+.invite-card label { display: block; margin: 22px 0 8px; font-size: 13px; font-weight: 600; }
 .invite-input-row { display: flex; gap: 8px; }
-input, textarea { width: 100%; border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg); color: var(--vp-c-text-1); font: inherit; }
-input { min-width: 0; padding: 11px 13px; }
-textarea { resize: vertical; min-height: 78px; padding: 12px 14px; line-height: 1.6; }
+input, textarea { width: 100%; border: 1px solid var(--vp-c-divider); border-radius: 7px; background: var(--vp-c-bg); color: var(--vp-c-text-1); font: inherit; letter-spacing: 0; }
+input { min-width: 0; height: 42px; padding: 0 12px; }
+textarea { height: 64px; min-height: 64px; max-height: 64px; resize: none; padding: 10px 12px; line-height: 1.45; overflow-y: auto; }
 input:focus, textarea:focus { outline: 2px solid var(--vp-c-brand-soft); border-color: var(--vp-c-brand-1); }
-button { border: 0; border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.primary-button { width: 100%; margin-top: 16px; background: var(--vp-c-brand-1); color: white; }
-.quiet-button { white-space: nowrap; background: var(--vp-c-bg-alt); color: var(--vp-c-text-2); }
-.error-text { margin: 12px 0 0 !important; color: var(--vp-c-danger-1) !important; font-size: 14px; }
-.chat-card { overflow: hidden; background: var(--vp-c-bg); }
-.chat-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--vp-c-divider); }
-.chat-header p { margin: 0; color: var(--vp-c-text-3); font-size: 13px; }
-.header-actions { display: flex; gap: 8px; }
-.mode-switch { display: flex; gap: 6px; padding: 12px 22px; border-bottom: 1px solid var(--vp-c-divider); }
-.mode-switch button { background: transparent; color: var(--vp-c-text-2); }
-.mode-switch button.active { background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1); }
-.message-list { height: 470px; overflow-y: auto; padding: 24px; }
-.empty-state { height: 100%; display: grid; place-content: center; gap: 8px; text-align: center; color: var(--vp-c-text-3); }
-.empty-state strong { color: var(--vp-c-text-2); font-size: 18px; }
-.message { max-width: 82%; margin-bottom: 20px; }
+button { border: 0; border-radius: 7px; font: inherit; font-weight: 600; letter-spacing: 0; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+.primary-button { height: 42px; margin-top: 14px; background: var(--vp-c-brand-1); color: white; }
+.invite-card > .primary-button { width: 100%; }
+.icon-button { width: 36px; height: 36px; display: inline-grid; flex: 0 0 auto; place-items: center; padding: 0; background: transparent; color: var(--vp-c-text-2); }
+.icon-button:hover { background: var(--vp-c-bg-soft); color: var(--vp-c-text-1); }
+.invite-input-row .icon-button { width: 42px; height: 42px; border: 1px solid var(--vp-c-divider); }
+.error-text { margin: 9px 0 0 !important; color: var(--vp-c-danger-1) !important; font-size: 13px; }
+.chat-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg); }
+.chat-toolbar { min-height: 62px; display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(220px, 1fr); align-items: center; gap: 16px; padding: 9px 14px; border-bottom: 1px solid var(--vp-c-divider); }
+.chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.identity-icon { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 7px; background: var(--vp-c-brand-soft); }
+.chat-identity h1 { margin: 0; border: 0; font-size: 16px; line-height: 1.2; }
+.chat-identity p { margin: 3px 0 0; color: var(--vp-c-green-1); font-size: 11px; }
+.mode-switch { height: 36px; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--vp-c-divider); border-radius: 7px; background: var(--vp-c-bg-soft); }
+.mode-label { padding: 0 7px; color: var(--vp-c-text-3); font-size: 12px; }
+.mode-switch button { height: 28px; padding: 0 10px; background: transparent; color: var(--vp-c-text-2); font-size: 12px; white-space: nowrap; }
+.mode-switch button.active { background: var(--vp-c-bg); color: var(--vp-c-brand-1); box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+.mode-switch button:disabled { color: var(--vp-c-text-3); text-decoration: line-through; }
+.toolbar-meta { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.quota { display: flex; gap: 9px; color: var(--vp-c-text-3); font-size: 11px; white-space: nowrap; }
+.header-actions { display: flex; gap: 2px; }
+.message-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px clamp(16px, 4vw, 54px); scroll-behavior: smooth; }
+.empty-state { height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--vp-c-text-3); text-align: center; }
+.empty-icon { width: 42px; height: 42px; border-radius: 50%; background: var(--vp-c-bg-soft); }
+.empty-state strong { color: var(--vp-c-text-2); font-size: 15px; }
+.message { width: fit-content; max-width: min(78%, 740px); margin-bottom: 16px; }
 .message.user { margin-left: auto; }
-.message-label { display: block; margin: 0 4px 6px; color: var(--vp-c-text-3); font-size: 12px; }
+.message-label { display: block; margin: 0 3px 5px; color: var(--vp-c-text-3); font-size: 11px; }
 .message.user .message-label { text-align: right; }
-.message-content { border-radius: 14px; padding: 12px 15px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-content { border-radius: 8px; padding: 10px 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message.user .message-content { background: var(--vp-c-brand-1); color: white; }
-.message.assistant .message-content { background: var(--vp-c-bg-soft); }
+.message.assistant .message-content { border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft); }
 .markdown-body { white-space: normal; }
-.markdown-body :deep(p) { margin: 0 0 10px; }
+.markdown-body :deep(p) { margin: 0 0 8px; }
 .markdown-body :deep(p:last-child) { margin-bottom: 0; }
-.markdown-body :deep(pre) { overflow-x: auto; border-radius: 8px; padding: 12px; background: var(--vp-code-block-bg); }
-.chat-error { padding: 0 22px; }
-.composer { display: flex; align-items: flex-end; gap: 10px; padding: 16px 20px 20px; border-top: 1px solid var(--vp-c-divider); }
-.send-button, .stop-button { width: 82px; min-height: 44px; margin: 0; }
+.markdown-body :deep(pre) { overflow-x: auto; border-radius: 6px; padding: 10px; background: var(--vp-code-block-bg); }
+.composer-panel { flex: 0 0 auto; padding: 10px 14px 12px; border-top: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft); }
+.chat-error { margin: 0 0 7px !important; }
+.composer { display: flex; align-items: center; gap: 8px; }
+.composer-button { width: 42px; height: 42px; min-width: 42px; display: inline-grid; place-items: center; margin: 0; padding: 0; }
 .stop-button { background: var(--vp-c-danger-soft); color: var(--vp-c-danger-1); }
-@media (max-width: 640px) {
-  .chat-shell { padding: 0; min-height: calc(100vh - 64px); }
-  .invite-card { margin: 24px 0; padding: 26px 20px; }
-  .chat-card { border-radius: 0; border-left: 0; border-right: 0; }
-  .chat-header { align-items: flex-start; padding: 14px; }
-  .mode-switch { padding: 10px 14px; }
-  .message-list { height: calc(100vh - 330px); min-height: 330px; padding: 16px 12px; }
-  .message { max-width: 92%; }
-  .composer { padding: 12px; }
+@media (max-width: 760px) {
+  .chat-shell { height: calc(100dvh - var(--vp-nav-height)); min-height: 440px; padding: 0; }
+  .chat-card { border-right: 0; border-left: 0; border-radius: 0; }
+  .chat-toolbar { grid-template-columns: 1fr auto; gap: 8px; padding: 8px 10px; }
+  .chat-identity p, .mode-label, .quota { display: none; }
+  .mode-switch { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; justify-content: center; width: 100%; }
+  .mode-switch button { flex: 1; }
+  .toolbar-meta { grid-column: 2; grid-row: 1; }
+  .message-list { padding: 14px 12px; }
+  .message { max-width: 90%; }
+  .composer-panel { padding: 8px 10px 10px; }
+  textarea { height: 58px; min-height: 58px; max-height: 58px; }
+}
+@media (max-height: 620px) and (min-width: 761px) {
+  .chat-shell { min-height: 420px; padding-top: 6px; padding-bottom: 8px; }
+  .chat-toolbar { min-height: 54px; }
+  textarea { height: 54px; min-height: 54px; max-height: 54px; }
+  .composer-panel { padding-top: 8px; padding-bottom: 8px; }
 }
 </style>

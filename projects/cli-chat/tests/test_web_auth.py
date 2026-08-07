@@ -22,9 +22,16 @@ ORIGIN = "http://localhost:5173"
 class FakeChatService:
     """不连接外部模型的确定性聊天服务。"""
 
-    def stream_reply(self, message, history=(), *, rag_enabled=False):
+    def stream_reply(
+        self,
+        message,
+        history=(),
+        *,
+        rag_enabled=False,
+        persona_id="normal",
+    ):
         prefix = "RAG:" if rag_enabled else "CHAT:"
-        yield prefix
+        yield f"{prefix}{persona_id}:"
         yield message
 
 

@@ -1,4 +1,5 @@
 export type ChatMode = 'chat' | 'rag'
+export type PersonaId = 'brat' | 'normal'
 export type MessageRole = 'user' | 'assistant'
 
 export interface ChatMessage {
@@ -17,4 +18,3 @@ export interface AuthState {
     dayRemaining: number
   }
 }
-

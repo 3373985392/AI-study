@@ -46,7 +46,7 @@ describe('ChatApp authentication gate', () => {
     const wrapper = mount(ChatApp)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('进入 AI Chat')
+    expect(wrapper.text()).toContain('请输入邀请码继续')
     expect(wrapper.find('textarea').exists()).toBe(false)
   })
 
@@ -61,25 +61,44 @@ describe('ChatApp authentication gate', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('已保存的问题')
-    expect(wrapper.text()).toContain('今日剩余 49 次')
+    expect(wrapper.text()).toContain('今日 49')
     expect(wrapper.find('textarea').exists()).toBe(true)
   })
 
-  it('sends the selected RAG mode and renders streamed tokens', async () => {
+  it('defaults to 雌小鬼 persona and keeps RAG disabled', async () => {
     authenticatedSession()
     vi.mocked(streamReply).mockImplementation(async (options) => {
-      options.onToken('知识库回答')
+      options.onToken('角色回答')
     })
     const wrapper = mount(ChatApp)
     await flushPromises()
 
-    await wrapper.findAll('.mode-switch button')[1].trigger('click')
-    await wrapper.find('textarea').setValue('Vue 是什么？')
+    const modeButtons = wrapper.findAll('.mode-switch button')
+    expect(modeButtons[0].text()).toBe('雌小鬼')
+    expect(modeButtons[1].text()).toBe('普通')
+    expect(modeButtons[2].attributes('disabled')).toBeDefined()
+    await wrapper.find('textarea').setValue('你好')
     await wrapper.find('.send-button').trigger('click')
     await flushPromises()
 
-    expect(streamReply).toHaveBeenCalledWith(expect.objectContaining({ mode: 'rag' }))
-    expect(wrapper.text()).toContain('知识库回答')
+    expect(streamReply).toHaveBeenCalledWith(expect.objectContaining({ mode: 'chat', persona: 'brat' }))
+    expect(wrapper.text()).toContain('角色回答')
+  })
+
+  it('clears history when switching persona', async () => {
+    localStorage.setItem(
+      'ai-study-chat-history:v1:viewer-1',
+      JSON.stringify([{ role: 'user', content: '旧角色历史' }]),
+    )
+    authenticatedSession()
+    const wrapper = mount(ChatApp)
+    await flushPromises()
+
+    await wrapper.findAll('.mode-switch button')[1].trigger('click')
+
+    expect(wrapper.text()).not.toContain('旧角色历史')
+    expect(localStorage.getItem('ai-study-chat-history:v1:viewer-1')).toBeNull()
+    expect(wrapper.text()).toContain('有什么想问的？')
   })
 
   it('aborts an active request when the stop button is pressed', async () => {
@@ -120,6 +139,6 @@ describe('ChatApp authentication gate', () => {
 
     expect(logoutSession).toHaveBeenCalledOnce()
     expect(localStorage.getItem('ai-study-chat-history:v1:viewer-1')).toBeNull()
-    expect(wrapper.text()).toContain('进入 AI Chat')
+    expect(wrapper.text()).toContain('请输入邀请码继续')
   })
 })

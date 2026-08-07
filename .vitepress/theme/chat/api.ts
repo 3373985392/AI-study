@@ -1,6 +1,6 @@
 /** 浏览器与同源 FastAPI 后端之间的唯一通信模块。 */
 
-import type { AuthState, ChatMessage, ChatMode } from './types'
+import type { AuthState, ChatMessage, ChatMode, PersonaId } from './types'
 
 
 export class ApiError extends Error {
@@ -48,6 +48,7 @@ interface StreamOptions {
   message: string
   history: ChatMessage[]
   mode: ChatMode
+  persona: PersonaId
   signal: AbortSignal
   onToken: (text: string) => void
 }
@@ -61,6 +62,7 @@ export async function streamReply(options: StreamOptions): Promise<void> {
       message: options.message,
       history: options.history,
       mode: options.mode,
+      persona: options.persona,
     }),
     signal: options.signal,
   })
@@ -89,4 +91,3 @@ export async function streamReply(options: StreamOptions): Promise<void> {
     if (done) break
   }
 }
-
