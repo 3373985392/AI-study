@@ -697,6 +697,16 @@ def create_app(
     ) -> dict[str, object]:
         ensure_origin(request)
         auth = require_auth(request)
+        if payload.persona is not None and resolved_database.conversation_has_messages(
+            auth.invite_id,
+            conversation_id,
+        ):
+            current = resolved_database.get_conversation(auth.invite_id, conversation_id)
+            if current and current["persona"] != payload.persona:
+                raise HTTPException(
+                    status_code=409,
+                    detail="当前不允许切换人格，如需切换人格请新建对话",
+                )
         row = resolved_database.update_conversation(
             auth.invite_id,
             conversation_id,

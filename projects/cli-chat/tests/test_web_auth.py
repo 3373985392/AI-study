@@ -321,7 +321,7 @@ class WebAuthTests(unittest.TestCase):
         )
         renamed = self.client.patch(
             f"/api/conversations/{conversation_id}",
-            json={"title": "反馈会话", "persona": "vue"},
+            json={"title": "反馈会话"},
             headers={"Origin": ORIGIN},
         )
         deleted = self.client.delete(
@@ -331,11 +331,33 @@ class WebAuthTests(unittest.TestCase):
 
         self.assertEqual(feedback.status_code, 204)
         self.assertEqual(renamed.json()["title"], "反馈会话")
-        self.assertEqual(renamed.json()["persona"], "vue")
+        self.assertEqual(renamed.json()["persona"], "normal")
         self.assertEqual(deleted.status_code, 204)
         remaining = self.client.get(f"/api/conversations/{conversation_id}/messages").json()
         self.assertEqual([item["role"] for item in remaining], ["user"])
         self.assertIsNone(self.database.get_conversation_memory(self.invite_id, conversation_id))
+
+    def test_persona_cannot_change_after_conversation_has_messages(self) -> None:
+        self.redeem()
+        conversation_id = self.client.post(
+            "/api/conversations",
+            json={"persona": "normal"},
+            headers={"Origin": ORIGIN},
+        ).json()["id"]
+        self.client.post(
+            "/api/chat/stream",
+            json={"message": "第一轮", "persona": "normal", "conversation_id": conversation_id},
+            headers={"Origin": ORIGIN},
+        )
+
+        response = self.client.patch(
+            f"/api/conversations/{conversation_id}",
+            json={"persona": "brat"},
+            headers={"Origin": ORIGIN},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("当前不允许切换人格", response.json()["detail"])
 
     def test_usage_metrics_do_not_store_message_content(self) -> None:
         self.redeem()

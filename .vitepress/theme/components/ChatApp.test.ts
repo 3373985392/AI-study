@@ -68,7 +68,6 @@ describe('ChatApp workspace', () => {
 
   it('defaults to normal persona and switches to Vue assistant without clearing messages', async () => {
     authenticatedSession()
-    vi.mocked(listMessages).mockResolvedValue([{ id: 'm1', role: 'user', content: '保留的问题' }])
     const wrapper = mount(ChatApp)
     await flushPromises()
     const personaButtons = wrapper.findAll('.persona-switch button')
@@ -77,7 +76,18 @@ describe('ChatApp workspace', () => {
     await personaButtons[1].trigger('click')
     await flushPromises()
     expect(updateConversation).toHaveBeenCalledWith('conversation-1', { persona: 'vue' })
-    expect(wrapper.text()).toContain('保留的问题')
+  })
+
+  it('locks persona buttons after the first message and explains how to switch', async () => {
+    authenticatedSession()
+    vi.mocked(listMessages).mockResolvedValue([{ id: 'm1', role: 'user', content: '已有问题' }])
+    const wrapper = mount(ChatApp)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前不允许切换人格，如需切换人格请新建对话')
+    expect(wrapper.findAll('.persona-switch button').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    await wrapper.findAll('.persona-switch button')[1].trigger('click')
+    expect(updateConversation).not.toHaveBeenCalled()
   })
 
   it('streams Vue sources and replaces temporary messages with server ids', async () => {

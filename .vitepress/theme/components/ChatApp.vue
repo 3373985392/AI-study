@@ -142,11 +142,16 @@ async function submitInvite(): Promise<void> {
 
 async function selectPersona(nextPersona: PersonaId): Promise<void> {
   const current = activeConversation.value
-  if (!current || current.persona === nextPersona || generating.value) return
-  current.persona = nextPersona
-  current.updatedAt = Math.floor(Date.now() / 1000)
-  if (current.localOnly) persistLocalState()
-  else await updateConversation(current.id, { persona: nextPersona })
+  if (!current || current.persona === nextPersona || generating.value || messages.value.length > 0) return
+  if (current.localOnly) {
+    current.persona = nextPersona
+    current.updatedAt = Math.floor(Date.now() / 1000)
+    persistLocalState()
+  } else {
+    const updated = await updateConversation(current.id, { persona: nextPersona })
+    current.persona = updated.persona
+    current.updatedAt = updated.updatedAt
+  }
 }
 
 async function sendMessage(questionOverride?: string): Promise<void> {
@@ -393,10 +398,13 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="persona-switch" aria-label="人设选择">
-            <button :class="{ active: persona === 'normal' }" type="button" @click="selectPersona('normal')">普通助手</button>
-            <button :class="{ active: persona === 'vue' }" type="button" @click="selectPersona('vue')">Vue 框架助手</button>
-            <button :class="{ active: persona === 'brat' }" type="button" @click="selectPersona('brat')">雌小鬼亚亚</button>
+          <div class="persona-controls">
+            <div class="persona-switch" aria-label="人设选择">
+              <button :class="{ active: persona === 'normal' }" :disabled="messages.length > 0 || generating" :title="messages.length > 0 ? '当前不允许切换人格，如需切换人格请新建对话' : ''" type="button" @click="selectPersona('normal')">普通助手</button>
+              <button :class="{ active: persona === 'vue' }" :disabled="messages.length > 0 || generating" :title="messages.length > 0 ? '当前不允许切换人格，如需切换人格请新建对话' : ''" type="button" @click="selectPersona('vue')">Vue 框架助手</button>
+              <button :class="{ active: persona === 'brat' }" :disabled="messages.length > 0 || generating" :title="messages.length > 0 ? '当前不允许切换人格，如需切换人格请新建对话' : ''" type="button" @click="selectPersona('brat')">雌小鬼亚亚</button>
+            </div>
+            <small v-if="messages.length > 0" class="persona-lock-notice">当前不允许切换人格，如需切换人格请新建对话</small>
           </div>
 
           <div class="toolbar-meta">
@@ -488,7 +496,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .local-toggle { min-height: 48px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border-top: 1px solid var(--vp-c-divider); color: var(--vp-c-text-2); font-size: 12px; cursor: pointer; }
 .local-toggle input { width: 15px; height: 15px; padding: 0; accent-color: var(--vp-c-brand-1); }
 .chat-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.chat-toolbar { min-height: 62px; display: grid; grid-template-columns: minmax(180px,1fr) auto minmax(170px,1fr); align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--vp-c-divider); }
+.chat-toolbar { min-height: 62px; display: grid; grid-template-columns: minmax(180px,1fr) auto minmax(170px,1fr); align-items: center; gap: 16px; padding: 8px 14px; border-bottom: 1px solid var(--vp-c-divider); }
 .mobile-menu { display: none; }
 .chat-identity { min-width: 0; display: flex; align-items: center; gap: 9px; }
 .identity-icon { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 7px; background: var(--vp-c-brand-soft); }
@@ -497,9 +505,12 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .title-button { max-width: 100%; display: flex; align-items: center; gap: 5px; padding: 0; background: transparent; color: var(--vp-c-text-1); font-size: 14px; }
 .title-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-form input { width: min(220px,100%); height: 30px; }
-.persona-switch { height: 36px; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--vp-c-divider); border-radius: 7px; background: var(--vp-c-bg-soft); }
+.persona-controls { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.persona-switch { height: 36px; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--vp-c-divider); border-radius: 9px; background: var(--vp-c-bg-soft); }
 .persona-switch button { height: 28px; padding: 0 10px; background: transparent; color: var(--vp-c-text-2); font-size: 12px; white-space: nowrap; }
 .persona-switch button.active { background: var(--vp-c-bg); color: var(--vp-c-brand-1); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.persona-switch button:disabled { opacity: .55; cursor: not-allowed; }
+.persona-lock-notice { max-width: 100%; color: var(--vp-c-text-3); font-size: 11px; line-height: 1.35; text-align: center; white-space: nowrap; }
 .toolbar-meta { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
 .quota { display: flex; gap: 8px; margin-right: 5px; color: var(--vp-c-text-3); font-size: 10px; white-space: nowrap; }
 .message-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px clamp(16px,4vw,52px); scroll-behavior: smooth; }
@@ -537,7 +548,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .sidebar-backdrop { display: none; }
 @media (max-width: 920px) {
   .chat-toolbar { grid-template-columns: minmax(150px,1fr) auto; }
-  .persona-switch { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+  .persona-controls { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
   .toolbar-meta { grid-column: 2; grid-row: 1; }
   .quota { display: none; }
 }
@@ -549,7 +560,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   .sidebar-backdrop { position: absolute; z-index: 19; inset: 0; display: block; border-radius: 0; background: rgba(0,0,0,.28); }
   .chat-toolbar { min-height: 58px; grid-template-columns: auto minmax(0,1fr) auto; gap: 5px; padding: 7px 8px; }
   .mobile-menu { display: inline-grid; }
-  .persona-switch { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+  .persona-controls { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+  .persona-switch { width: 100%; }
   .persona-switch button { min-width: 0; flex: 1; padding: 0 5px; }
   .chat-identity { min-width: 0; }
   .identity-icon,.title-area p { display: none; }

@@ -237,6 +237,17 @@ class ChatDatabase:
             )
         return self.get_conversation(invite_id, conversation_id)
 
+    def conversation_has_messages(self, invite_id: str, conversation_id: str) -> bool:
+        """判断会话是否已经产生消息，用于锁定创建时选择的人格。"""
+
+        with closing(self.connect()) as connection, connection:
+            row = connection.execute(
+                """SELECT 1 FROM messages m JOIN conversations c ON c.id = m.conversation_id
+                   WHERE c.id = ? AND c.invite_id = ? LIMIT 1""",
+                (conversation_id, invite_id),
+            ).fetchone()
+        return row is not None
+
     def delete_conversation(self, invite_id: str, conversation_id: str) -> bool:
         with closing(self.connect()) as connection, connection:
             cursor = connection.execute(
