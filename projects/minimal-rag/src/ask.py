@@ -1,6 +1,8 @@
 """最小 RAG 问答入口：串联检索、提示词构建和流式回答。"""
 
 import argparse
+import os
+import threading
 from collections.abc import Iterator
 
 from src.chat_client import stream_answer
@@ -8,7 +10,17 @@ from src.prompt_builder import build_prompt
 from src.retriever import retrieve
 
 
-def stream_rag_answer(question: str, top_k: int = 3) -> Iterator[str]:
+class InsufficientKnowledgeError(RuntimeError):
+    """当前知识库没有达到最低相关度的资料。"""
+
+
+def stream_rag_answer(
+    question: str,
+    top_k: int = 3,
+    *,
+    on_sources=None,
+    cancel_event: threading.Event | None = None,
+) -> Iterator[str]:
     """检索与问题相关的资料，并流式产出带引用的回答。"""
 
     question = question.strip()
@@ -21,15 +33,23 @@ def stream_rag_answer(question: str, top_k: int = 3) -> Iterator[str]:
 
     # 第一步：把当前问题向量化，并取回最相关的文档切片。
     results = retrieve(question, top_k=top_k)
+    minimum_score = float(os.getenv("RAG_MIN_VECTOR_SCORE", "0.35"))
+    results = [result for result in results if result["vector_score"] >= minimum_score]
 
     if not results:
-        raise RuntimeError("没有检索到可用于回答的资料")
+        raise InsufficientKnowledgeError("根据现有 Vue 知识库无法确定")
+
+    if on_sources:
+        on_sources(results)
 
     # 第二步：给资料编号，并加入严格引用和资料不足时的回答规则。
     prompt = build_prompt(question, results)
 
     # 第三步：把完整提示词交给聊天模型，并逐段向调用方返回文本。
-    yield from stream_answer(prompt)
+    for token in stream_answer(prompt):
+        if cancel_event and cancel_event.is_set():
+            break
+        yield token
 
 
 def main() -> None:

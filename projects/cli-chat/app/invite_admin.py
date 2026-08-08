@@ -81,7 +81,12 @@ def main() -> None:
         print(
             f"ID={row['id']} label={row['label']} active={bool(row['active'])}\n"
             f"minute={row['minute_used']}/{row['minute_limit']} "
-            f"day={row['day_used']}/{row['day_limit']} total={row['total_used']}"
+            f"day={row['day_used']}/{row['day_limit']} total={row['total_used']}\n"
+            f"errors={row['error_count']} cancelled={row['cancelled_count']} "
+            f"first_token_avg={row['average_first_token_ms'] or 0}ms "
+            f"duration_avg={row['average_duration_ms'] or 0}ms\n"
+            f"tokens={row['input_tokens']}in/{row['output_tokens']}out "
+            f"estimated_cost_usd={row['estimated_cost_usd']:.6f}"
         )
 
 

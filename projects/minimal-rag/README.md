@@ -56,7 +56,7 @@ minimal-rag/
 │  ├─ prompt_builder.py     # 拼接资料、问题和引用规则
 │  ├─ chat_client.py        # 普通与流式聊天模型调用
 │  └─ ask.py                # 完整 RAG 问答入口
-├─ eval_questions.md        # 人工检索评测问题
+├─ eval_questions.md        # 自动检索评测问题
 ├─ requirements.txt         # Python 依赖
 └─ README.md
 ```
@@ -182,7 +182,20 @@ RAG 检索只使用当前问题，不会把整段聊天历史放入 Embedding �
 
 ## 评测
 
-[`eval_questions.md`](eval_questions.md) 保存了一组问题及预期来源。评测时应分别检查：
+[`eval_questions.md`](eval_questions.md) 保存了一组问题及预期来源。默认评测只调用
+Embedding，计算 Recall@K 和 MRR：
+
+```powershell
+python -m src.evaluate --top-k 3
+```
+
+需要同时调用聊天模型验证 `[来源 N]` 引用编号时执行：
+
+```powershell
+python -m src.evaluate --top-k 3 --generate
+```
+
+评测会分别检查：
 
 - 正确章节是否出现在 Top-K 中
 - 排名靠前的切片是否足以回答问题

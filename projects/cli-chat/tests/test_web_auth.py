@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.database import ChatDatabase
+from app.memory_service import ConversationMemory
 from app.security import secret_digest, validate_invite_code
 from app.web_api import ActiveRequestRegistry, create_app
 from app.web_settings import WebSettings
@@ -22,6 +23,12 @@ ORIGIN = "http://localhost:5173"
 class FakeChatService:
     """不连接外部模型的确定性聊天服务。"""
 
+    model = "fake-model"
+
+    def __init__(self):
+        self.seen_memories = []
+        self.force_memory_compaction = False
+
     def stream_reply(
         self,
         message,
@@ -29,10 +36,32 @@ class FakeChatService:
         *,
         rag_enabled=False,
         persona_id="normal",
+        memory=None,
+        on_sources=None,
+        on_usage=None,
+        cancel_event=None,
     ):
+        self.seen_memories.append(memory)
         prefix = "RAG:" if rag_enabled else "CHAT:"
+        if rag_enabled and on_sources:
+            on_sources([{
+                "source_file": "docs/watchers.md",
+                "document_title": "侦听器",
+                "section_title": "基本示例",
+                "subsection_title": "",
+                "score": 0.9,
+            }])
         yield f"{prefix}{persona_id}:"
         yield message
+
+    def compact_memory(self, memory, messages):
+        if not self.force_memory_compaction:
+            return None
+        return ConversationMemory(
+            summary="已压缩的历史",
+            decisions=("保留滚动摘要",),
+            summarized_through_message_id=messages[-1]["id"],
+        )
 
 
 class WebAuthTests(unittest.TestCase):
@@ -54,8 +83,9 @@ class WebAuthTests(unittest.TestCase):
             5,
             50,
         )
+        self.chat_service = FakeChatService()
         self.client = TestClient(
-            create_app(self.settings, self.database, FakeChatService()),
+            create_app(self.settings, self.database, self.chat_service),
         )
 
     def tearDown(self) -> None:
@@ -135,7 +165,7 @@ class WebAuthTests(unittest.TestCase):
 
         response = self.client.post(
             "/api/chat/stream",
-            json={"message": "你好", "history": [], "mode": "chat"},
+            json={"message": "你好", "history": [], "persona": "normal"},
             headers={"Origin": ORIGIN},
         )
 
@@ -172,12 +202,12 @@ class WebAuthTests(unittest.TestCase):
 
         first = self.client.post(
             "/api/chat/stream",
-            json={"message": "第一问", "mode": "chat"},
+            json={"message": "第一问", "persona": "normal"},
             headers={"Origin": ORIGIN},
         )
         second = self.client.post(
             "/api/chat/stream",
-            json={"message": "第二问", "mode": "chat"},
+            json={"message": "第二问", "persona": "normal"},
             headers={"Origin": ORIGIN},
         )
 
@@ -195,17 +225,137 @@ class WebAuthTests(unittest.TestCase):
         self.assertFalse(second.allowed)
         self.assertGreaterEqual(second.retry_after, 1)
 
-    def test_rag_mode_is_streamed_through_same_endpoint(self) -> None:
+    def test_vue_persona_uses_rag_and_returns_sources(self) -> None:
         self.redeem()
 
         response = self.client.post(
             "/api/chat/stream",
-            json={"message": "Vue 是什么？", "mode": "rag"},
+            json={"message": "Vue 是什么？", "persona": "vue"},
             headers={"Origin": ORIGIN},
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("RAG:", response.text)
+        self.assertIn("event: sources", response.text)
+
+    def test_synchronized_conversation_persists_exchange(self) -> None:
+        self.redeem()
+        created = self.client.post(
+            "/api/conversations",
+            json={"persona": "normal"},
+            headers={"Origin": ORIGIN},
+        )
+        conversation_id = created.json()["id"]
+
+        response = self.client.post(
+            "/api/chat/stream",
+            json={
+                "message": "保存这一轮",
+                "persona": "normal",
+                "conversation_id": conversation_id,
+            },
+            headers={"Origin": ORIGIN},
+        )
+        messages = self.client.get(
+            f"/api/conversations/{conversation_id}/messages"
+        ).json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["role"] for item in messages], ["user", "assistant"])
+        self.assertEqual(messages[0]["content"], "保存这一轮")
+
+    def test_synchronized_conversation_reuses_persisted_memory(self) -> None:
+        self.redeem()
+        conversation_id = self.client.post(
+            "/api/conversations",
+            json={"persona": "normal"},
+            headers={"Origin": ORIGIN},
+        ).json()["id"]
+        self.chat_service.force_memory_compaction = True
+
+        self.client.post(
+            "/api/chat/stream",
+            json={"message": "需要被压缩", "persona": "normal", "conversation_id": conversation_id},
+            headers={"Origin": ORIGIN},
+        )
+        stored = self.database.get_conversation_memory(self.invite_id, conversation_id)
+        self.chat_service.force_memory_compaction = False
+        self.client.post(
+            "/api/chat/stream",
+            json={"message": "继续", "persona": "normal", "conversation_id": conversation_id},
+            headers={"Origin": ORIGIN},
+        )
+
+        self.assertEqual(stored["summary"], "已压缩的历史")
+        self.assertEqual(self.chat_service.seen_memories[-1].summary, "已压缩的历史")
+
+    def test_conversation_message_feedback_and_delete_workflow(self) -> None:
+        self.redeem()
+        conversation = self.client.post(
+            "/api/conversations",
+            json={"persona": "normal"},
+            headers={"Origin": ORIGIN},
+        ).json()
+        conversation_id = conversation["id"]
+        self.client.post(
+            "/api/chat/stream",
+            json={"message": "需要反馈", "persona": "normal", "conversation_id": conversation_id},
+            headers={"Origin": ORIGIN},
+        )
+        messages = self.client.get(f"/api/conversations/{conversation_id}/messages").json()
+        assistant_id = messages[1]["id"]
+        self.database.save_conversation_memory(
+            self.invite_id,
+            conversation_id,
+            summary="即将失效",
+            facts=[],
+            decisions=[],
+            open_items=[],
+            summarized_through_message_id=assistant_id,
+        )
+
+        feedback = self.client.put(
+            f"/api/messages/{assistant_id}/feedback",
+            json={"rating": -1, "comment": "引用不够清楚"},
+            headers={"Origin": ORIGIN},
+        )
+        renamed = self.client.patch(
+            f"/api/conversations/{conversation_id}",
+            json={"title": "反馈会话", "persona": "vue"},
+            headers={"Origin": ORIGIN},
+        )
+        deleted = self.client.delete(
+            f"/api/messages/{assistant_id}",
+            headers={"Origin": ORIGIN},
+        )
+
+        self.assertEqual(feedback.status_code, 204)
+        self.assertEqual(renamed.json()["title"], "反馈会话")
+        self.assertEqual(renamed.json()["persona"], "vue")
+        self.assertEqual(deleted.status_code, 204)
+        remaining = self.client.get(f"/api/conversations/{conversation_id}/messages").json()
+        self.assertEqual([item["role"] for item in remaining], ["user"])
+        self.assertIsNone(self.database.get_conversation_memory(self.invite_id, conversation_id))
+
+    def test_usage_metrics_do_not_store_message_content(self) -> None:
+        self.redeem()
+        self.client.post(
+            "/api/chat/stream",
+            json={"message": "指标隐私检查", "persona": "normal"},
+            headers={"Origin": ORIGIN},
+        )
+        connection = self.database.connect()
+        try:
+            usage = connection.execute(
+                "SELECT model, persona, input_characters, output_characters FROM usage_events"
+            ).fetchone()
+        finally:
+            connection.close()
+
+        self.assertEqual(usage["model"], "fake-model")
+        self.assertEqual(usage["persona"], "normal")
+        self.assertGreater(usage["output_characters"], 0)
+        self.assertNotIn("指标隐私检查".encode(), str(dict(usage)).encode())
 
     def test_active_registry_rejects_parallel_request(self) -> None:
         registry = ActiveRequestRegistry()

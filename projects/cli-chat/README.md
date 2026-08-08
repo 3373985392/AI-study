@@ -11,7 +11,9 @@
 - 支持 `/exit`、`/quit`、`/退出`、`/再见` 退出程序
 - API 请求失败时不会直接退出
 - FastAPI SSE 流式接口与 VitePress 浏览器聊天界面
-- 长期邀请码、30 天会话、调用限额与本地历史隔离
+- 长期邀请码、同步多会话、仅本机隐私会话、调用限额与来源展示
+- 普通助手、Vue 框架助手和安全趣味人设
+- 请求超时、有限重试、SSE 心跳以及无正文指标观测
 
 ## 环境要求
 
@@ -52,7 +54,22 @@ Copy-Item .env.example .env
 LLM_API_KEY=你的百炼API Key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL=qwen-plus
+LLM_CONNECT_TIMEOUT_SECONDS=10
+LLM_READ_TIMEOUT_SECONDS=60
+LLM_MAX_OUTPUT_TOKENS=2048
+LLM_MAX_RETRIES=2
+LLM_CONTEXT_WINDOW_TOKENS=32768
+# 默认复用 LLM_MODEL，无需额外部署记忆模型
+# LLM_MEMORY_MODEL=qwen-plus
+LLM_MEMORY_TRIGGER_TOKENS=16000
+LLM_MEMORY_RECENT_ROUNDS=4
+LLM_MEMORY_MAX_INPUT_TOKENS=12000
+LLM_MEMORY_MAX_OUTPUT_TOKENS=800
 ```
+
+普通同步会话会在上下文达到 `LLM_MEMORY_TRIGGER_TOKENS` 后，把较早消息
+压缩为滚动摘要，同时保留最近若干轮原文。摘要调用默认复用聊天模型；原始
+消息仍完整保存在数据库中。仅本机会话不在服务端生成或保存摘要。
 
 不要把 `.env` 提交到 Git。
 
@@ -65,8 +82,18 @@ python chat.py
 
 ## 本地运行 Web Chat
 
-先在仓库根目录 `.env` 中配置模型参数和 Web Chat 参数。两个 Pepper
-必须使用不同的随机值，且至少 32 个字符。
+先在仓库根目录 `.env` 中配置模型参数和 Web Chat 参数。邀请码、普通会话和
+管理员会话使用的三个 Pepper 必须互不相同，且至少 32 个字符。
+
+管理员后台还需要独立的会话 Pepper 和 scrypt 密码哈希。密码哈希通过隐藏输入生成：
+
+```powershell
+cd D:\myproject\projects\cli-chat
+..\..\.venv\Scripts\python.exe -m app.admin_credentials hash
+```
+
+将输出写入 `ADMIN_PASSWORD_HASH`，并另外生成
+`ADMIN_SESSION_TOKEN_PEPPER`。管理员页面地址为 `/admin`。
 
 在第一个 PowerShell 窗口启动后端：
 
@@ -85,6 +112,18 @@ npm run dev
 
 浏览器访问 `http://localhost:5173/chat`。VitePress 会将 `/api`
 代理到本机的 FastAPI 服务。
+
+Web 页面中的“Vue 框架助手”会自动使用 `minimal-rag`，不再需要单独选择
+聊天模式。同步会话正文默认保留 365 天；选择“新会话仅本机”后，正文只会
+进入当前浏览器的 `localStorage`，不会写入服务器数据库。
+
+调用指标只记录模型、人设、结果、首 Token 延迟、总耗时、字符数、Token 数和
+估算成本，不记录消息正文。为成本估算配置模型的每百万 Token 单价：
+
+```dotenv
+LLM_INPUT_PRICE_PER_MILLION=0
+LLM_OUTPUT_PRICE_PER_MILLION=0
+```
 
 ## 管理邀请码
 

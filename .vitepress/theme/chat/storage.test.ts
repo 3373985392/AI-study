@@ -1,31 +1,35 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { clearHistory, loadHistory, prepareHistory, saveHistory } from './storage'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  clearHistory, createLocalConversation, loadActiveConversationId, loadLocalConversations,
+  prepareHistory, saveActiveConversationId, saveLocalConversations,
+} from './storage'
 
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  vi.stubGlobal('crypto', { randomUUID: () => 'local-id' })
+})
 
-describe('browser history', () => {
-  it('isolates messages by viewer id and keeps ten rounds', () => {
-    const messages = Array.from({ length: 24 }, (_, index) => ({
+describe('local conversation storage', () => {
+  it('stores only local conversations and isolates viewers', () => {
+    const local = createLocalConversation('vue')
+    local.messages = Array.from({ length: 24 }, (_, index) => ({
       role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
       content: `message-${index}`,
     }))
+    saveLocalConversations('viewer-a', [local, { ...local, id: 'remote-id', localOnly: false }])
 
-    saveHistory('viewer-a', messages)
-
-    expect(loadHistory('viewer-a')).toHaveLength(20)
-    expect(loadHistory('viewer-b')).toEqual([])
-    expect(loadHistory('viewer-a')[0].content).toBe('message-4')
+    expect(loadLocalConversations('viewer-a')).toHaveLength(1)
+    expect(loadLocalConversations('viewer-a')[0].messages).toHaveLength(20)
+    expect(loadLocalConversations('viewer-b')).toEqual([])
   })
 
-  it('clears only the selected viewer history', () => {
-    saveHistory('viewer-a', [{ role: 'user', content: 'A' }])
-    saveHistory('viewer-b', [{ role: 'user', content: 'B' }])
+  it('stores and clears the active conversation per viewer', () => {
+    saveActiveConversationId('viewer-a', 'conversation-a')
+    expect(loadActiveConversationId('viewer-a')).toBe('conversation-a')
 
     clearHistory('viewer-a')
-
-    expect(loadHistory('viewer-a')).toEqual([])
-    expect(loadHistory('viewer-b')).toHaveLength(1)
+    expect(loadActiveConversationId('viewer-a')).toBe('')
   })
 
   it('caps individual messages and total request history', () => {
@@ -33,9 +37,7 @@ describe('browser history', () => {
       role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
       content: 'x'.repeat(12_500),
     }))
-
     const prepared = prepareHistory(oversized)
-
     expect(prepared.every((message) => message.content.length <= 12_000)).toBe(true)
     expect(prepared.reduce((total, message) => total + message.content.length, 0)).toBeLessThanOrEqual(40_000)
   })

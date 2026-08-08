@@ -16,7 +16,7 @@
 
 站点的 `/chat` 页面复用 CLI Chat 的模型与 RAG 能力，使用服务端邀请码验证。
 邀请码、会话和额度数据保存在服务器 SQLite 中，浏览器只保存当前邀请码对应的
-本地聊天历史；API Key 不会发送到浏览器。开发和生产部署说明见
+同步会话保存在服务器，用户也可以创建“仅本机”隐私会话；API Key 不会发送到浏览器。开发和生产部署说明见
 [projects/cli-chat/README.md](projects/cli-chat/README.md) 与 [deploy/README.md](deploy/README.md)。
 
 ### Minimal RAG

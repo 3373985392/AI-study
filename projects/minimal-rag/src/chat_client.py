@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from dotenv import load_dotenv
+from httpx import Timeout
 from openai import OpenAI
 
 
@@ -55,7 +56,15 @@ def create_chat_client() -> tuple[OpenAI, str]:
     """创建 OpenAI 兼容客户端，同时返回聊天模型名称。"""
 
     api_key, base_url, model = load_chat_config()
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        max_retries=int(os.getenv("LLM_MAX_RETRIES", "2")),
+        timeout=Timeout(
+            float(os.getenv("LLM_READ_TIMEOUT_SECONDS", "60")),
+            connect=float(os.getenv("LLM_CONNECT_TIMEOUT_SECONDS", "10")),
+        ),
+    )
     return client, model
 
 
@@ -72,9 +81,13 @@ def stream_answer(prompt: str) -> Iterator[str]:
         stream=True,
         # RAG 问答强调忠于检索资料，因此降低输出随机性。
         temperature=0.1,
+        max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2048")),
+        stream_options={"include_usage": True},
     )
 
     for chunk in stream:
+        if not chunk.choices:
+            continue
         content = chunk.choices[0].delta.content
         if content:
             yield content

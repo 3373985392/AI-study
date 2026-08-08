@@ -34,6 +34,14 @@ class WebSettings:
     day_limit: int = 50
     login_attempt_limit: int = 5
     metadata_retention_days: int = 90
+    conversation_retention_days: int = 365
+    sse_heartbeat_seconds: float = 15.0
+    input_price_per_million: float = 0.0
+    output_price_per_million: float = 0.0
+    admin_password_hash: str = ""
+    admin_session_token_pepper: str = ""
+    admin_session_hours: int = 8
+    admin_login_attempt_limit: int = 5
 
 
 def load_web_settings() -> WebSettings:
@@ -54,14 +62,22 @@ def load_web_settings() -> WebSettings:
         database_path = REPOSITORY_ROOT / database_path
     invite_pepper = os.getenv("INVITE_CODE_PEPPER", "")
     session_pepper = os.getenv("SESSION_TOKEN_PEPPER", "")
+    admin_password_hash = os.getenv("ADMIN_PASSWORD_HASH", "")
+    admin_session_pepper = os.getenv("ADMIN_SESSION_TOKEN_PEPPER", "")
 
     missing = [
         name
         for name, value in (
             ("INVITE_CODE_PEPPER", invite_pepper),
             ("SESSION_TOKEN_PEPPER", session_pepper),
+            ("ADMIN_PASSWORD_HASH", admin_password_hash),
+            ("ADMIN_SESSION_TOKEN_PEPPER", admin_session_pepper),
         )
-        if len(value) < 32 or value.startswith("replace-with")
+        if (
+            (name == "ADMIN_PASSWORD_HASH" and not value.startswith("scrypt$"))
+            or (name != "ADMIN_PASSWORD_HASH" and len(value) < 32)
+            or value.startswith("replace-with")
+        )
     ]
     if missing:
         raise RuntimeError(f"以下密钥缺失或少于 32 个字符: {', '.join(missing)}")
@@ -86,4 +102,12 @@ def load_web_settings() -> WebSettings:
         day_limit=int(os.getenv("CHAT_DAY_LIMIT", "50")),
         login_attempt_limit=int(os.getenv("CHAT_LOGIN_ATTEMPT_LIMIT", "5")),
         metadata_retention_days=int(os.getenv("CHAT_METADATA_RETENTION_DAYS", "90")),
+        conversation_retention_days=int(os.getenv("CHAT_CONVERSATION_RETENTION_DAYS", "365")),
+        sse_heartbeat_seconds=float(os.getenv("CHAT_SSE_HEARTBEAT_SECONDS", "15")),
+        input_price_per_million=float(os.getenv("LLM_INPUT_PRICE_PER_MILLION", "0")),
+        output_price_per_million=float(os.getenv("LLM_OUTPUT_PRICE_PER_MILLION", "0")),
+        admin_password_hash=admin_password_hash,
+        admin_session_token_pepper=admin_session_pepper,
+        admin_session_hours=int(os.getenv("ADMIN_SESSION_HOURS", "8")),
+        admin_login_attempt_limit=int(os.getenv("ADMIN_LOGIN_ATTEMPT_LIMIT", "5")),
     )

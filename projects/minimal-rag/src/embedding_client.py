@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from httpx import Timeout
 from openai import OpenAI
 
 
@@ -32,6 +33,11 @@ def create_embedding_client() -> OpenAI:
     return OpenAI(
         api_key=api_key,
         base_url=base_url,
+        max_retries=int(os.getenv("LLM_MAX_RETRIES", "2")),
+        timeout=Timeout(
+            float(os.getenv("LLM_READ_TIMEOUT_SECONDS", "60")),
+            connect=float(os.getenv("LLM_CONNECT_TIMEOUT_SECONDS", "10")),
+        ),
     )
 
 

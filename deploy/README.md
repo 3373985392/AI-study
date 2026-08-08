@@ -27,6 +27,14 @@
 5. HTTPS 证书生效后保持 `CHAT_COOKIE_SECURE=true`；纯 HTTP 调试环境必须临时设为
    `false`，否则浏览器不会回传会话 Cookie。
 
+管理员密码不以明文进入配置。部署前生成 scrypt 哈希并写入
+`ADMIN_PASSWORD_HASH`：
+
+```bash
+cd /srv/ai-study/projects/cli-chat
+/srv/ai-study/.venv/bin/python -m app.admin_credentials hash
+```
+
 ## 邀请码管理
 
 以 `deploy` 用户运行管理命令，确保数据库权限一致：
@@ -46,5 +54,5 @@ cd /srv/ai-study
 bash deploy/deploy.sh
 ```
 
-SQLite 数据库和 `/etc/ai-study/chat.env` 必须单独备份；缺少 Pepper 时已有邀请码
-和会话无法继续验证。
+SQLite 数据库和 `/etc/ai-study/chat.env` 必须单独备份；缺少对应 Pepper 时已有
+邀请码、普通会话或管理员会话将无法继续验证。

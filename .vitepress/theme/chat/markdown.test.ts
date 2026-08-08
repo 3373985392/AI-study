@@ -10,4 +10,10 @@ describe('safe markdown', () => {
     expect(html).not.toContain('<img')
     expect(html).toContain('&lt;img')
   })
+
+  it('adds a safe copy control to fenced code blocks', () => {
+    const html = renderMarkdown('```ts\nconst answer = 42\n```')
+    expect(html).toContain('class="code-copy"')
+    expect(html).toContain('const answer = 42')
+  })
 })
